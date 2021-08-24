@@ -166,6 +166,18 @@ func (t *TypeProvider) GetInt64() (int64, error) {
 	return int64(x), err
 }
 
+func (t *TypeProvider) GetInt() (int, error) {
+	// Obtain an uint64 and convert it to an int
+	x, err := t.GetUint64()
+	return int(x), err
+}
+
+func (t *TypeProvider) GetUint() (uint, error) {
+	// Obtain an uint64 and convert it to an uint
+	x, err := t.GetUint64()
+	return uint(x), err
+}
+
 func (t *TypeProvider) GetFloat32() (float32, error) {
 	// Obtain an uint32 and convert it to a float32
 	x, err := t.GetUint32()

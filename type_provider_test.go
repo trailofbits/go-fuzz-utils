@@ -63,18 +63,27 @@ func TestSimpleTypes(t *testing.T) {
 	assert.EqualValues(t, 0XD8, bytesDynamic[0])
 	assert.EqualValues(t, 0xD7, bytesDynamic[1])
 
-	strDynamic, err := tp.GetString(0) // pos 35
+	strDynamic, err := tp.GetString(0) // pos 46
 	assert.Nil(t, err)
 	assert.EqualValues(t, 62, len(strDynamic))
 
-	strFixed, err := tp.GetFixedString(7) // pos 35
+	strFixed, err := tp.GetFixedString(7) // pos 112
 	assert.Nil(t, err)
 	assert.EqualValues(t, 7, len(strFixed))
 
 	// Previously forgot the float64 test case, but we'll add it at the end so it doesn't shift our read values
-	f64, err := tp.GetFloat64() // pos 29
+	f64, err := tp.GetFloat64() // pos 119
 	assert.Nil(t, err)
 	assert.EqualValues(t, -1.4249914579614907e-267, f64)
+
+	// Architecture dependent integer type tests
+	i, err := tp.GetInt() // pos 127
+	assert.Nil(t, err)
+	assert.EqualValues(t, -9187485637388043655, i)
+
+	u, err := tp.GetUint() // pos 135
+	assert.Nil(t, err)
+	assert.EqualValues(t, 8680537053616894577, u)
 }
 
 func TestReachedEnd(t *testing.T) {
@@ -116,6 +125,12 @@ func TestReachedEnd(t *testing.T) {
 	assert.NotNil(t, err)
 
 	_, err = tp.GetUint64()
+	assert.NotNil(t, err)
+
+	_, err = tp.GetInt()
+	assert.NotNil(t, err)
+
+	_, err = tp.GetUint()
 	assert.NotNil(t, err)
 
 	_, err = tp.GetFloat32()
