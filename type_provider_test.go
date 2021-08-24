@@ -96,7 +96,7 @@ func TestSimpleTypes(t *testing.T) {
 	assert.EqualValues(t, 8680537053616894577, u)
 }
 
-func TestReachedEnd(t *testing.T) {
+func TestPositionReachedEnd(t *testing.T) {
 	// Create our fuzz data
 	b := generateTestData(1)
 
@@ -309,4 +309,45 @@ func TestFillBasicTypes(t *testing.T) {
 	err = tp.Fill(&f64, 0, 0, 0, false)
 	assert.Nil(t, err)
 	assert.EqualValues(t, -6.466470811086963e+153, f64)
+}
+
+func TestFillComplexTypes(t *testing.T) {
+	// Create our fuzz data
+	b := generateTestData(0x1000)
+
+	// Create our type provider
+	tp := goFuzzUtils.NewTypeProvider(b)
+
+	// Create a mapping and fill it.
+	m := make(map[string]int)
+	err := tp.Fill(&m, 15, 15, 0, true)
+
+	// Ensure something was generated.
+	assert.Nil(t, err)
+	assert.Greater(t, len(m), 0)
+	assert.LessOrEqual(t, len(m), 15) // no more than 15 entries based on our args
+
+	// Reset our position we extract data from in our array.
+	tp.Position = 0
+
+	// Create an array and fill it.
+	u64Arr := make([]uint64, 20)
+	err = tp.Fill(&u64Arr, 15, 15, 0, true)
+
+	// Ensure something was generated.
+	assert.Nil(t, err)
+	assert.Greater(t, len(u64Arr), 0)
+	assert.LessOrEqual(t, len(u64Arr), 15) // no more than 15 entries based on our args
+
+	// Reset our position we extract data from in our array.
+	tp.Position = 0
+
+	// Create an array and fill it.
+	mappingArr := make([]map[string]int, 15)
+	err = tp.Fill(&mappingArr, 15, 15, 0, true)
+
+	// Ensure something was generated.
+	assert.Nil(t, err)
+	assert.Greater(t, len(mappingArr), 0)
+	assert.LessOrEqual(t, len(mappingArr), 15) // no more than 15 entries based on our args
 }

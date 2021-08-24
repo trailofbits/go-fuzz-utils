@@ -20,6 +20,8 @@ func NewTypeProvider(data []byte) *TypeProvider {
 	return t
 }
 
+// validateBounds checks if the remaining data in the buffer can satisfy an expected amount of bytes to be read.
+// Returns an error if the provided number of bytes left at the current Position cannot satisfy the expected count.
 func (t *TypeProvider) validateBounds(expectedCount uint) error {
 	// If our position is out of bounds, return an error.
 	length := uint(len(t.data))
@@ -37,6 +39,9 @@ func (t *TypeProvider) validateBounds(expectedCount uint) error {
 	return nil
 }
 
+// GetNBytes obtains the requested number of bytes from the current Position in the buffer.
+// This advances the Position the provided length.
+// Returns the requested bytes, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetNBytes(length uint) ([]byte, error) {
 	// Validate our boundaries
 	err := t.validateBounds(length)
@@ -50,6 +55,9 @@ func (t *TypeProvider) GetNBytes(length uint) ([]byte, error) {
 	return b, nil
 }
 
+// GetByte obtains a single byte from the current Position in the buffer.
+// This advances the Position by 1.
+// Returns the single read byte, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetByte() (byte, error) {
 	// Validate our boundaries
 	err := t.validateBounds(1)
@@ -63,24 +71,36 @@ func (t *TypeProvider) GetByte() (byte, error) {
 	return b, nil
 }
 
+// GetBool obtains a bool from the current Position in the buffer.
+// This advances the Position by 1.
+// Returns the read bool, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetBool() (bool, error) {
 	// Obtain a byte and return a bool depending on if its even or odd.
 	b, err := t.GetByte()
 	return b % 2 == 0, err
 }
 
+// GetUint8 obtains an uint8 from the current Position in the buffer.
+// This advances the Position by 1.
+// Returns the read uint8, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetUint8() (uint8, error) {
 	// Obtain a byte and return it as the requested type.
 	b, err := t.GetByte()
 	return uint8(b), err
 }
 
+// GetInt8 obtains an int8 from the current Position in the buffer.
+// This advances the Position by 1.
+// Returns the read int8, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetInt8() (int8, error) {
 	// Obtain a byte and return it as the requested type.
 	b, err := t.GetByte()
 	return int8(b), err
 }
 
+// GetUint16 obtains an uint16 from the current Position in the buffer.
+// This advances the Position by 2.
+// Returns the read uint16, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetUint16() (uint16, error) {
 	// Obtain the data to back our value
 	b, err := t.GetNBytes(2)
@@ -92,12 +112,18 @@ func (t *TypeProvider) GetUint16() (uint16, error) {
 	return binary.BigEndian.Uint16(b), nil
 }
 
+// GetInt16 obtains an int16 from the current Position in the buffer.
+// This advances the Position by 2.
+// Returns the read int16, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetInt16() (int16, error) {
 	// Obtain an uint16 and convert it to an int16
 	x, err := t.GetUint16()
 	return int16(x), err
 }
 
+// GetUint32 obtains an uint32 from the current Position in the buffer.
+// This advances the Position by 4.
+// Returns the read uint32, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetUint32() (uint32, error) {
 	// Obtain the data to back our value
 	b, err := t.GetNBytes(4)
@@ -109,12 +135,18 @@ func (t *TypeProvider) GetUint32() (uint32, error) {
 	return binary.BigEndian.Uint32(b), nil
 }
 
+// GetInt32 obtains an int32 from the current Position in the buffer.
+// This advances the Position by 4.
+// Returns the read int32, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetInt32() (int32, error) {
 	// Obtain an uint32 and convert it to an int32
 	x, err := t.GetUint32()
 	return int32(x), err
 }
 
+// GetUint64 obtains an uint64 from the current Position in the buffer.
+// This advances the Position by 8.
+// Returns the read uint64, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetUint64() (uint64, error) {
 	// Obtain the data to back our value
 	b, err := t.GetNBytes(8)
@@ -126,36 +158,54 @@ func (t *TypeProvider) GetUint64() (uint64, error) {
 	return binary.BigEndian.Uint64(b), nil
 }
 
+// GetInt64 obtains an int64 from the current Position in the buffer.
+// This advances the Position by 64.
+// Returns the read int64, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetInt64() (int64, error) {
 	// Obtain an uint64 and convert it to an int64
 	x, err := t.GetUint64()
 	return int64(x), err
 }
 
-func (t *TypeProvider) GetInt() (int, error) {
-	// Obtain an uint64 and convert it to an int
-	x, err := t.GetUint64()
-	return int(x), err
-}
-
+// GetUint obtains an uint from the current Position in the buffer.
+// This advances the Position by 8, reading an uint64 and casting it to the architecture-dependent width.
+// Returns the read uint, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetUint() (uint, error) {
 	// Obtain an uint64 and convert it to an uint
 	x, err := t.GetUint64()
 	return uint(x), err
 }
 
+// GetInt obtains an int from the current Position in the buffer.
+// This advances the Position by 8, reading an int64 and casting it to the architecture-dependent width.
+// Returns the read int, or an error if the end of stream has been reached.
+func (t *TypeProvider) GetInt() (int, error) {
+	// Obtain an uint64 and convert it to an int
+	x, err := t.GetUint64()
+	return int(x), err
+}
+
+// GetFloat32 obtains a float32 from the current Position in the buffer.
+// This advances the Position by 4.
+// Returns the read float32, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetFloat32() (float32, error) {
 	// Obtain an uint32 and convert it to a float32
 	x, err := t.GetUint32()
 	return math.Float32frombits(x), err
 }
 
+// GetFloat64 obtains a float64 from the current Position in the buffer.
+// This advances the Position by 8.
+// Returns the read float64, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetFloat64() (float64, error) {
 	// Obtain an uint64 and convert it to a float64
 	x, err := t.GetUint64()
 	return math.Float64frombits(x), err
 }
 
+// GetFixedString obtains a string of the requested length from the current Position in the buffer.
+// This advances the Position the provided length.
+// Returns a string of the requested length, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetFixedString(length uint) (string, error) {
 	// Obtain bytes to convert to a string.
 	b, err := t.GetNBytes(length)
@@ -167,6 +217,10 @@ func (t *TypeProvider) GetFixedString(length uint) (string, error) {
 	return string(b), nil
 }
 
+// GetBytes obtains a number of bytes no more than the provided maxLength from the buffer.
+// This advances the Position by 4 + len(result), as a 32-bit unsigned integer is read to determine the buffer size
+// to subsequently read.
+// Returns the read bytes, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetBytes(maxLength uint) ([]byte, error) {
 	// Obtain an uint32 which will represent the length we will read.
 	x, err := t.GetUint32()
@@ -183,6 +237,10 @@ func (t *TypeProvider) GetBytes(maxLength uint) ([]byte, error) {
 	return t.GetNBytes(uint(x) % (maxLength + 1))
 }
 
+// GetString obtains a string of length no more than the provided maxLength from the buffer.
+// This advances the Position by 4 + len(result), as a 32-bit unsigned integer is read to determine the buffer size
+// to subsequently read.
+// Returns the read string, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetString(maxLength uint) (string, error) {
 	// Obtain a byte array of random length and convert it to a string.
 	b, err := t.GetBytes(maxLength)
@@ -192,6 +250,12 @@ func (t *TypeProvider) GetString(maxLength uint) (string, error) {
 	return string(b), err
 }
 
+// Fill populates data into a variable at a provided pointer. This can be used for structs or basic types.
+// String lengths are bounded by maxStringLength, while array lengths are bounded by maxArrayLength.
+// When filling a structure, the structDepthLimit defines how deep nested structures can be filled. A depth of one will
+// only fill the immediately provided structure and not any nested structures. A depth of zero can be provided for
+// unlimited depth.
+// Returns the read string, or an error if encountered.
 func (t *TypeProvider) Fill(i interface{}, maxStringLength uint, maxArrayLength uint, structDepthLimit uint, fillPrivateFields bool) error {
 	// If we are given a depth limit of zero, it is a special case where we allow infinite depth.
 	if structDepthLimit == 0 {
@@ -205,6 +269,9 @@ func (t *TypeProvider) Fill(i interface{}, maxStringLength uint, maxArrayLength 
 	return t.fillValue(v, maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
 }
 
+// fillValue populates data into a variable based on reflection. Given the provided parameters, structures and simple
+// types can be recursively populated. See documentation surrounding the Fill method for more details.
+// Returns an error if one is encountered.
 func (t *TypeProvider) fillValue(v reflect.Value, maxStringLength uint, maxArrayLength uint, structDepthLimit uint, fillPrivateFields bool) error {
 	// If we can't set the value, we can stop immediately.
 	if !v.CanSet() {
