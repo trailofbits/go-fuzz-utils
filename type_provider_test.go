@@ -1,22 +1,32 @@
-package go_fuzz_utils
+package go_fuzz_utils_test
 
 import (
 	"github.com/stretchr/testify/assert"
+	goFuzzUtils "go-fuzz-utils"
+	"sync"
 	"testing"
 )
 
-func TestSimpleTypes(t *testing.T) {
-	// Create our fuzz data
-	b := make([]byte, 256)
+func generateTestData(length uint) []byte {
+	// Create our test data
+	b := make([]byte, length)
 
 	// Loop through and set our bytes accordingly. We do it in descending order so the values we test will have
-	// negative bits set if they're signed integers.
+	// negative bits set if they're signed integers first. If tests don't use all the data, this will at least test
+	// integer width properties better since more bits will be set.
 	for i := 0; i < len(b); i++ {
-		b[i] = 255 - byte(i)
+		b[i] = 255 - byte(i % 256)
 	}
 
+	return b
+}
+
+func TestSimpleTypes(t *testing.T) {
+	// Create our fuzz data
+	b := generateTestData(256)
+
 	// Create our type provider
-	tp := New(b)
+	tp := goFuzzUtils.NewTypeProvider(b)
 
 	// Assert the values are as expected reading from the above buffer.
 	b1, err := tp.GetByte() // pos 0
@@ -88,11 +98,10 @@ func TestSimpleTypes(t *testing.T) {
 
 func TestReachedEnd(t *testing.T) {
 	// Create our fuzz data
-	b := make([]byte, 1)
-	b[0] = 0xFF
+	b := generateTestData(1)
 
 	// Create our type provider
-	tp := New(b)
+	tp := goFuzzUtils.NewTypeProvider(b)
 
 	// Assert the values are as expected
 	b1, err := tp.GetByte() // pos 0
@@ -159,4 +168,145 @@ func TestReachedEnd(t *testing.T) {
 	b, err = tp.GetNBytes(0)
 	assert.Nil(t, err)
 	assert.EqualValues(t, 0, len(b))
+}
+
+type testStruct struct {
+	s1 string
+	st1 struct {
+		s string
+		s2 string
+		i int
+	}
+	sArr []string
+	bArr []byte
+	stArr [] struct {
+		b byte
+		s string
+		i8 int8
+		i16 int16
+		i32 int32
+		i64 int64
+		f32 float32
+		f64 float64
+	}
+	PublicString string
+	PublicByte byte
+	testMutex sync.Mutex
+	PublicBytes []byte
+}
+
+func TestFillStructs(t *testing.T) {
+	// Create our fuzz data
+	b := generateTestData(0x1000)
+
+	// Create our type provider
+	tp := goFuzzUtils.NewTypeProvider(b)
+
+	// Create a test structure and fill it.
+	st := testStruct{}
+	err := tp.Fill(&st, 15, 15, 0, true)
+
+	// Ensure no error was encountered and private variables were filled in this instance.
+	assert.Nil(t, err)
+	assert.NotNil(t, st.sArr) // private variable, filled
+	assert.NotNil(t, st.bArr) // private variable, filled
+	assert.False(t, st.st1.s == "" && st.st1.s2 == "" && st.st1.i == 0) // depth 2, something should be non-default value.
+
+	// Reset our position to use the same data, but without filling private variables.
+	tp.Position = 0
+
+	// Create a test structure and fill it.
+	st2 := testStruct{}
+	err = tp.Fill(&st2, 15, 15, 0, false)
+
+	// Ensure no error was encountered and private variables weren't filled in this instance.
+	assert.Nil(t, err)
+	assert.Nil(t, st2.sArr) // private variable, unfilled
+	assert.Nil(t, st2.bArr) // private variable, unfilled
+	assert.EqualValues(t, "", st2.st1.s) // private variable, unfilled
+	assert.EqualValues(t, "", st2.st1.s2) // private variable, unfilled
+	assert.EqualValues(t, 0, st2.st1.i) // private variable, unfilled
+
+	// Reset our position to use the same data, but without filling private variables.
+	tp.Position = 0
+
+	// Create a test structure and fill it.
+	st3 := testStruct{}
+	err = tp.Fill(&st3, 15, 15, 1, true)
+
+	// Ensure no error was encountered and private variables weren't filled in this instance.
+	assert.Nil(t, err)
+	assert.NotNil(t, st3.sArr) // private variable, unfilled
+	assert.NotNil(t, st3.bArr)
+	assert.EqualValues(t, "", st3.st1.s)// depth 2, not filled
+	assert.EqualValues(t, "", st3.st1.s2)// depth 2, not filled
+	assert.EqualValues(t, 0, st3.st1.i)// depth 2, not filled
+}
+
+func TestFillBasicTypes(t *testing.T) {
+	// Create our fuzz data
+	b := generateTestData(0x1000)
+
+	// Create our type provider
+	tp := goFuzzUtils.NewTypeProvider(b)
+
+	// Create a test structure and fill it.
+	st := testStruct{}
+	err := tp.Fill(&st, 15, 15, 0, true)
+
+	// Ensure no error was encountered.
+	assert.Nil(t, err)
+	assert.NotNil(t, st.sArr) // private variable, filled
+	assert.NotNil(t, st.bArr) // private variable, filled
+
+	// Reset our position
+	tp.Position = 0
+
+	// Fill a int16
+	var i16 int16
+	err = tp.Fill(&i16, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, -2, i16)
+
+	// Fill a uint16
+	var u16 uint16
+	err = tp.Fill(&u16, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 65020, u16)
+
+	// Fill a int32
+	var i32 int32
+	err = tp.Fill(&i32, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, -67438088, i32)
+
+	// Fill a uint32
+	var u32 uint32
+	err = tp.Fill(&u32, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, 4160157172, u32)
+
+	// Fill a int64
+	var i64 int64
+	err = tp.Fill(&i64, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, -868365761009226260, i64)
+
+	// Fill a uint64
+	var u64 uint64
+	err = tp.Fill(&u64, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, uint64(16999656929995711972), u64)
+
+	// Fill a float32
+	var f32 float32
+	err = tp.Fill(&f32, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, -8.3704803e+021, f32)
+
+	// Fill a float64
+	var f64 float64
+	err = tp.Fill(&f64, 0, 0, 0, false)
+	assert.Nil(t, err)
+	assert.EqualValues(t, -6.466470811086963e+153, f64)
 }

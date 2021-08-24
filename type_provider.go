@@ -5,45 +5,61 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
+	"unsafe"
 )
 
 type TypeProvider struct {
 	data []byte
-	position uint
+	Position uint
 }
 
-func New(data []byte) *TypeProvider {
+func NewTypeProvider(data []byte) *TypeProvider {
 	// Create a new type provider from the provided data.
 	t := &TypeProvider{data: data}
 	return t
 }
 
-func (t *TypeProvider) ValidateBounds(expectedCount uint) error {
+func (t *TypeProvider) validateBounds(expectedCount uint) error {
 	// If our position is out of bounds, return an error.
-	if uint(len(t.data)) < t.position {
-		return errors.New(fmt.Sprintf("Position out of bounds (pos: %d)", t.position))
+	length := uint(len(t.data))
+	if length < t.Position {
+		return errors.New(fmt.Sprintf("position out of bounds: (position: %d / length: %d)", t.Position, length))
 	}
 
 	// If there aren't enough bytes left, return an error.
-	bytesLeft := uint(len(t.data)) - t.position
+	bytesLeft := length - t.Position
 	if bytesLeft < expectedCount {
-		return errors.New(fmt.Sprintf("End of stream reached. Tried to read %d bytes but only had %d left.", expectedCount, bytesLeft))
+		return errors.New(fmt.Sprintf("end of stream reached: could not read %d bytes (position: %d / length: %d)", expectedCount, t.Position, length))
 	}
 
 	// Return no error
 	return nil
 }
 
+func (t *TypeProvider) GetNBytes(length uint) ([]byte, error) {
+	// Validate our boundaries
+	err := t.validateBounds(length)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain a slice of our data, advance position, and return the data.
+	b := t.data[t.Position:t.Position + length]
+	t.Position += length
+	return b, nil
+}
+
 func (t *TypeProvider) GetByte() (byte, error) {
 	// Validate our boundaries
-	err := t.ValidateBounds(1)
+	err := t.validateBounds(1)
 	if err != nil {
 		return 0, err
 	}
 
-	// Obtain a slice of our data, advance position, and return the data.
-	b := t.data[t.position]
-	t.position += 1
+	// Obtain our single byte, advance position, and return the data.
+	b := t.data[t.Position]
+	t.Position += 1
 	return b, nil
 }
 
@@ -51,56 +67,6 @@ func (t *TypeProvider) GetBool() (bool, error) {
 	// Obtain a byte and return a bool depending on if its even or odd.
 	b, err := t.GetByte()
 	return b % 2 == 0, err
-}
-
-func (t *TypeProvider) GetNBytes(length uint) ([]byte, error) {
-	// Validate our boundaries
-	err := t.ValidateBounds(length)
-	if err != nil {
-		return nil, err
-	}
-
-	// Obtain a slice of our data, advance position, and return the data.
-	b := t.data[t.position:t.position + length]
-	t.position += length
-	return b, nil
-}
-
-func (t *TypeProvider) GetFixedString(length uint) (string, error) {
-	// Obtain bytes to convert to a string.
-	b, err := t.GetNBytes(length)
-	if err != nil {
-		return "", err
-	}
-
-	// Return a string from the bytes
-	return string(b), nil
-}
-
-func (t *TypeProvider) GetBytes(maxLength uint) ([]byte, error) {
-	// Obtain an uint32 which will represent the length we will read.
-	x, err := t.GetUint32()
-	if err != nil {
-		return nil, err
-	}
-
-	// If a max length of zero is provided, it is a special case indicating we can read to the end of the data.
-	if maxLength == 0 {
-		maxLength = uint(len(t.data)) - t.position
-	}
-
-	// Use the previously read uint32 to determine how many bytes to read, then obtain them and return.
-	return t.GetNBytes(uint(x) % (maxLength + 1))
-}
-
-func (t *TypeProvider) GetString(maxLength uint) (string, error) {
-	// Obtain a byte array of random length and convert it to a string.
-	b, err := t.GetBytes(maxLength)
-	if err != nil {
-		return "", err
-	} else {
-		return string(b), err
-	}
 }
 
 func (t *TypeProvider) GetUint8() (uint8, error) {
@@ -188,4 +154,229 @@ func (t *TypeProvider) GetFloat64() (float64, error) {
 	// Obtain an uint64 and convert it to a float64
 	x, err := t.GetUint64()
 	return math.Float64frombits(x), err
+}
+
+func (t *TypeProvider) GetFixedString(length uint) (string, error) {
+	// Obtain bytes to convert to a string.
+	b, err := t.GetNBytes(length)
+	if err != nil {
+		return "", err
+	}
+
+	// Return a string from the bytes
+	return string(b), nil
+}
+
+func (t *TypeProvider) GetBytes(maxLength uint) ([]byte, error) {
+	// Obtain an uint32 which will represent the length we will read.
+	x, err := t.GetUint32()
+	if err != nil {
+		return nil, err
+	}
+
+	// If a max length of zero is provided, it is a special case indicating we can read to the end of the data.
+	if maxLength == 0 {
+		maxLength = uint(len(t.data)) - t.Position
+	}
+
+	// Use the previously read uint32 to determine how many bytes to read, then obtain them and return.
+	return t.GetNBytes(uint(x) % (maxLength + 1))
+}
+
+func (t *TypeProvider) GetString(maxLength uint) (string, error) {
+	// Obtain a byte array of random length and convert it to a string.
+	b, err := t.GetBytes(maxLength)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}
+
+func (t *TypeProvider) Fill(i interface{}, maxStringLength uint, maxArrayLength uint, structDepthLimit uint, fillPrivateFields bool) error {
+	// If we are given a depth limit of zero, it is a special case where we allow infinite depth.
+	if structDepthLimit == 0 {
+		structDepthLimit = ^uint(0)
+	}
+
+	// We should have been provided a pointer, so we obtain reflect pkg values and dereference.
+	v := reflect.Indirect(reflect.ValueOf(i))
+
+	// Next we fill the value.
+	return t.fillValue(v, maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
+}
+
+func (t *TypeProvider) fillValue(v reflect.Value, maxStringLength uint, maxArrayLength uint, structDepthLimit uint, fillPrivateFields bool) error {
+	// If we can't set the value, we can stop immediately.
+	if !v.CanSet() {
+		return nil
+	}
+
+	// Determine how to set our value based on its type.
+	if v.Kind() == reflect.Bool {
+		bl, err := t.GetBool()
+		if err != nil {
+			return err
+		}
+		v.SetBool(bl)
+	} else if v.Kind() == reflect.Int8 {
+		i8, err := t.GetInt8()
+		if err != nil {
+			return err
+		}
+		v.SetInt(int64(i8))
+	} else if v.Kind() == reflect.Uint8 {
+		u8, err := t.GetUint8()
+		if err != nil {
+			return err
+		}
+		v.SetUint(uint64(u8))
+	}  else if v.Kind() == reflect.Int16 {
+		i16, err := t.GetInt16()
+		if err != nil {
+			return err
+		}
+		v.SetInt(int64(i16))
+	} else if v.Kind() == reflect.Uint16 {
+		u16, err := t.GetUint16()
+		if err != nil {
+			return err
+		}
+		v.SetUint(uint64(u16))
+	} else if v.Kind() == reflect.Int32 {
+		i32, err := t.GetInt32()
+		if err != nil {
+			return err
+		}
+		v.SetInt(int64(i32))
+	} else if v.Kind() == reflect.Uint32 {
+		u32, err := t.GetUint32()
+		if err != nil {
+			return err
+		}
+		v.SetUint(uint64(u32))
+	} else if v.Kind() == reflect.Int64 {
+		i64, err := t.GetInt64()
+		if err != nil {
+			return err
+		}
+		v.SetInt(i64)
+	} else if v.Kind() == reflect.Uint64 {
+		u64, err := t.GetUint64()
+		if err != nil {
+			return err
+		}
+		v.SetUint(u64)
+	} else if v.Kind() == reflect.Int {
+		i, err := t.GetInt()
+		if err != nil {
+			return err
+		}
+		v.SetInt(int64(i))
+	} else if v.Kind() == reflect.Uint {
+		u, err := t.GetUint()
+		if err != nil {
+			return err
+		}
+		v.SetUint(uint64(u))
+	} else if v.Kind() == reflect.Float32 {
+		f32, err := t.GetFloat32()
+		if err != nil {
+			return err
+		}
+		v.SetFloat(float64(f32))
+	} else if v.Kind() == reflect.Float64 {
+		f64, err := t.GetFloat64()
+		if err != nil {
+			return err
+		}
+		v.SetFloat(f64)
+	} else if v.Kind() == reflect.String {
+		s, err := t.GetString(maxStringLength)
+		if err != nil {
+			return err
+		}
+		v.SetString(s)
+	} else if v.Kind() == reflect.Slice {
+		// Read an uint32 for the size of the slice we will create
+		// (we modulo divide by max bytes + 1 to get a random value in our range)
+		x, err := t.GetUint32()
+		if err != nil {
+			return err
+		}
+		sliceSize := int(uint(x) % (maxArrayLength + 1))
+
+		// Create a slice and recursively populate it, as its type may be complex.
+		slice := reflect.MakeSlice(v.Type(), sliceSize, sliceSize)
+		for i := 0; i < sliceSize; i++ {
+			err = t.fillValue(slice.Index(i), maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Set our slice value
+		v.Set(slice)
+	} else if v.Kind() == reflect.Map {
+		// Read an uint32 for the size of the slice we will create
+		// (we modulo divide by max bytes + 1 to get a random value in our range)
+		x, err := t.GetUint32()
+		if err != nil {
+			return err
+		}
+		mapSize := int(uint(x) % (maxArrayLength + 1))
+
+		// Create our map and set it now, so we can proceed to create key-value pairs for it.
+		v.Set(reflect.MakeMap(v.Type()))
+
+		// Loop for each element we wish to create
+		for i := 0; i < mapSize; i++ {
+			// First we need to create our key, depending on the key type
+			mKey := reflect.New(v.Type().Key()).Elem()
+			mValue := reflect.New(v.Type().Elem()).Elem()
+
+			// Populate the key and value
+			err = t.fillValue(mKey, maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
+			if err != nil {
+				return err
+			}
+			err = t.fillValue(mValue, maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
+			if err != nil {
+				return err
+			}
+
+			// Set the key-value pair in our dictionary
+			v.SetMapIndex(mKey, mValue)
+		}
+	} else if v.Kind() == reflect.Ptr {
+		// If it's a pointer, we need to create a new underlying type to live at the pointer, then populate it.
+		v.Set(reflect.New(v.Type().Elem()))
+		err := t.fillValue(v.Elem(), maxStringLength, maxArrayLength, structDepthLimit, fillPrivateFields)
+		if err != nil {
+			return err
+		}
+	} else if v.Kind() == reflect.Struct && structDepthLimit != 0 {
+		// For structs we need to recursively populate every field
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+
+			// If it's private and we're not setting private fields, skip it
+			if !field.CanSet() {
+				if !fillPrivateFields {
+					continue
+				}
+				// If we are filling private fields, we continue by creating a new one here.
+				// Reference: https://stackoverflow.com/questions/42664837/how-to-access-unexported-struct-fields
+				field = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
+			}
+
+			// Now we're ready to set our data, so fill it accordingly.
+			err := t.fillValue(field, maxStringLength, maxArrayLength, structDepthLimit - 1, fillPrivateFields)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Unknown value types are simply skipped/ignored so we can fuzz what we're able to.
+	return nil
 }
