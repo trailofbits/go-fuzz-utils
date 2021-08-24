@@ -59,13 +59,13 @@ func TestSimpleTypes(t *testing.T) {
 
 	bytesDynamic, err := tp.GetBytes(0) // pos 35
 	assert.Nil(t, err)
-	assert.EqualValues(t, 60, len(bytesDynamic))
+	assert.EqualValues(t, 7, len(bytesDynamic))
 	assert.EqualValues(t, 0XD8, bytesDynamic[0])
 	assert.EqualValues(t, 0xD7, bytesDynamic[1])
 
 	strDynamic, err := tp.GetString(0) // pos 35
 	assert.Nil(t, err)
-	assert.EqualValues(t, 57, len(strDynamic))
+	assert.EqualValues(t, 62, len(strDynamic))
 
 	strFixed, err := tp.GetFixedString(7) // pos 35
 	assert.Nil(t, err)
@@ -74,7 +74,7 @@ func TestSimpleTypes(t *testing.T) {
 	// Previously forgot the float64 test case, but we'll add it at the end so it doesn't shift our read values
 	f64, err := tp.GetFloat64() // pos 29
 	assert.Nil(t, err)
-	assert.EqualValues(t, 3.6781362252089753e+117, f64)
+	assert.EqualValues(t, -1.4249914579614907e-267, f64)
 }
 
 func TestReachedEnd(t *testing.T) {

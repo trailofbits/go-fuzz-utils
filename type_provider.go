@@ -90,7 +90,7 @@ func (t *TypeProvider) GetBytes(maxLength uint) ([]byte, error) {
 	}
 
 	// Use the previously read uint32 to determine how many bytes to read, then obtain them and return.
-	return t.GetNBytes(uint(x) % maxLength)
+	return t.GetNBytes(uint(x) % (maxLength + 1))
 }
 
 func (t *TypeProvider) GetString(maxLength uint) (string, error) {
