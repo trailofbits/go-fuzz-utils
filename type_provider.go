@@ -444,6 +444,6 @@ func (t *TypeProvider) fillValue(v reflect.Value, maxStringLength uint, maxArray
 		}
 	}
 
-	// Unknown value types are simply skipped/ignored so we can fuzz what we're able to.
+	// Unknown value types are simply skipped/ignored, so we continue to fuzz what we're able to.
 	return nil
 }
