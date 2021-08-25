@@ -63,14 +63,20 @@ type testStruct struct {
 
 You can simply perform a `Fill` call to populate it with the fuzz data:
 ```go
-	// Create a test structure and fill it.
+	// Create a test structure
 	st := testStruct{}
-	err := tp.Fill(&st, 15, 20, 0, true) // strings of max length 15, arrays of max length 20, structs populated to 0 depth (infinite), and signal to fill private struct members.
+
+	// Fill our structure
+	// - strings of max length 15
+	// - arrays of max length 20
+	// - populate structs recursively up to a depth of zero, which implies infinite depth
+	// - fill private struct members
+	err := tp.Fill(&st, 15, 20, 0, true)
 ```
 
 Or with a complex type such as an array of mappings:
 ```go
-	// Create an array of mappings and fill them.
+	// Create an array of mappings and fill them
 	mappingArr := make([]map[string]int, 15)
 	err = tp.Fill(&mappingArr, 15, 15, 0, true)
 ```
