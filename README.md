@@ -8,11 +8,14 @@ Simply ensure you have enough data to represent all the fuzz variables you wish 
 ```go
 	// Ensure the data is of appropriate length to read variables from
 	if len(data) < 0x1000 {
-		return
+		return -1
 	}
 
 	// Create our type provider
-	tp := goFuzzUtils.NewTypeProvider(data)
+	tp, err := go_fuzz_utils.NewTypeProvider(data)
+    if err != nil {
+        return -1
+    }
 ```
 
 ## Simple data types
@@ -65,18 +68,27 @@ You can simply perform a `Fill` call to populate it with the fuzz data:
 ```go
 	// Create a test structure
 	st := testStruct{}
+    
+    // Settings for the provided data (default values below)
+	tp.SliceMinSize = 0
+	tp.SliceMaxSize = 0
+	tp.SliceNilBias = 0.05
+	tp.MapMinSize = 0
+	tp.MapMaxSize = 15
+	tp.MapNilBias = 0.05
+	tp.StringMinLength = 0
+	tp.StringMaxLength = 15
+	tp.DepthLimit = 0
+	tp.FillUnexportedFields = true
 
 	// Fill our structure
-	// - strings of max length 15
-	// - arrays of max length 20
-	// - populate structs recursively up to a depth of zero, which implies infinite depth
-	// - fill private struct members
-	err := tp.Fill(&st, 15, 20, 0, true)
+	err = tp.Fill(&st)
+    
 ```
 
 Or with a complex type such as an array of mappings:
 ```go
 	// Create an array of mappings and fill them
 	mappingArr := make([]map[string]int, 15)
-	err = tp.Fill(&mappingArr, 15, 15, 0, true)
+	err = tp.Fill(&mappingArr)
 ```
