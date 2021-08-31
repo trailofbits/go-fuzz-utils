@@ -156,6 +156,17 @@ func (t *TypeProvider) Reset() error {
 	return nil
 }
 
+// SetBiases provides a single method to change all bias configuration parameters with for this TypeProvider.
+func (t *TypeProvider) SetBiases(nilBias float32, skipBias float32) {
+	// Set our nil biases
+	t.MapNilBias = nilBias
+	t.PtrNilBias = nilBias
+	t.SliceNilBias = nilBias
+
+	// Set our skip bias
+	t.SkipFieldBias = skipBias
+}
+
 // GetNBytes obtains the requested number of bytes from the current position in the buffer.
 // This advances the position the provided length.
 // Returns the requested bytes, or an error if the end of stream has been reached.
