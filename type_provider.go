@@ -10,24 +10,47 @@ import (
 	"unsafe"
 )
 
+// TypeProvider ingests an arbitrary byte array and uses it to extract common data types and populate structures
+// for use in fuzzing campaigns.
 type TypeProvider struct {
 	data []byte
 	position int
 	randomProvider *rand.Rand // initialized after seed is obtained from first few bytes of data
 
-	// Fill-related fields
+	// SliceMinSize describes the minimum size a slice value will be generated as
 	SliceMinSize int
+	// SliceMaxSize describes the maximum size a slice value will be generated as
 	SliceMaxSize int
+	// SliceNilBias describes the probability of a slice being set as nil (represented as a float between 0 and 1)
 	SliceNilBias float32
+
+	// MapMinSize describes the minimum size a map value will be generated as
 	MapMinSize   int
+	// MapMaxSize describes the maximum size a map value will be generated as
 	MapMaxSize int
+	// MapNilBias describes the probability of a map being set as nil (represented as a float between 0 and 1)
 	MapNilBias float32
+
+	// PtrNilBias describes the probability of a pointer being set as nil (represented as a float between 0 and 1)
+	PtrNilBias float32
+
+	// StringMinLength describes the minimum size a string value will be generated as
 	StringMinLength int
+	// StringMaxLength describes the maximum size a string value will be generated as
 	StringMaxLength int
+
+	// DepthLimit describes the maximum struct depth that values will be filled at. A value of zero indicates unlimited
+	// depth.
 	DepthLimit int // zero indicates infinite depth
+	// FillUnexportedFields indicates whether unexported fields should be filled.
 	FillUnexportedFields bool
+	// SkipFieldBias describes the probability of a field being skipped during struct fill operations (represented as
+	// a float between 0 and 1)
+	SkipFieldBias float32
 }
 
+// NewTypeProvider constructs a new TypeProvider instance with the provided data and default parameters.
+// Returns the newly constructed TypeProvider.
 func NewTypeProvider(data []byte) (*TypeProvider, error) {
 	// Create a new type provider from the provided data and default settings
 	t := &TypeProvider{
@@ -38,10 +61,12 @@ func NewTypeProvider(data []byte) (*TypeProvider, error) {
 		MapMinSize:           0,
 		MapMaxSize:           15,
 		MapNilBias:           0.05,
+		PtrNilBias:			  0.05,
 		StringMinLength:      0,
 		StringMaxLength:      15,
 		DepthLimit:           0,
 		FillUnexportedFields: true,
+		SkipFieldBias:        0,
 	}
 
 	// Call reset to create our random provider from this data.
@@ -361,6 +386,11 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 		return nil
 	}
 
+	// Determine if we should skip this field
+	if t.getRandomBool(t.SkipFieldBias) {
+		return nil
+	}
+
 	// Determine how to set our value based on its type.
 	if v.Kind() == reflect.Bool {
 		bl, err := t.GetBool()
@@ -466,66 +496,84 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 			return err
 		}
 		v.SetString(s)
-	} else if v.Kind() == reflect.Slice && !t.getRandomBool(t.SliceNilBias) {
-		// Obtain a random size
-		sliceSize := t.getRandomSize(t.SliceMinSize, t.SliceMaxSize)
-
-		// Typically, we just create a slice here and loop for each element and fill it. But we add a special case here
-		// for byte arrays, as they're very common. Setting each element individually will take too long, so we read
-		// a slice of bytes and set them all at once if we can detect the type is a []byte
-		sliceElementType := v.Type().Elem()
-		if sliceElementType.Kind() == reflect.Uint8 {
-			b, err := t.GetNBytes(sliceSize)
-			if err != nil {
-				return err
-			}
-			v.SetBytes(b)
+	} else if v.Kind() == reflect.Slice {
+		// Determine if the slice will be nil or if we'll actually populate it.
+		if t.getRandomBool(t.SliceNilBias) {
+			// Set nil slice
+			v.Set(reflect.Zero(v.Type()))
 		} else {
-			// If this isn't a byte array, create a generic slice of the correct type and fill it.
-			slice := reflect.MakeSlice(v.Type(), sliceSize, sliceSize)
-			for i := 0; i < sliceSize; i++ {
-				err := t.fillValue(slice.Index(i), currentDepth)
+			// Obtain a random size
+			sliceSize := t.getRandomSize(t.SliceMinSize, t.SliceMaxSize)
+
+			// Typically, we just create a slice here and loop for each element and fill it. But we add a special case here
+			// for byte arrays, as they're very common. Setting each element individually will take too long, so we read
+			// a slice of bytes and set them all at once if we can detect the type is a []byte
+			sliceElementType := v.Type().Elem()
+			if sliceElementType.Kind() == reflect.Uint8 {
+				b, err := t.GetNBytes(sliceSize)
 				if err != nil {
 					return err
 				}
+				v.SetBytes(b)
+			} else {
+				// If this isn't a byte array, create a generic slice of the correct type and fill it.
+				slice := reflect.MakeSlice(v.Type(), sliceSize, sliceSize)
+				for i := 0; i < sliceSize; i++ {
+					err := t.fillValue(slice.Index(i), currentDepth)
+					if err != nil {
+						return err
+					}
+				}
+				// Set our slice value
+				v.Set(slice)
 			}
-			// Set our slice value
-			v.Set(slice)
 		}
-	} else if v.Kind() == reflect.Map && !t.getRandomBool(t.MapNilBias) {
-		// Obtain a random size
-		mapSize := t.getRandomSize(t.MapMinSize, t.MapMaxSize)
+	} else if v.Kind() == reflect.Map {
+		// Determine if the map will be nil or if we'll actually populate it.
+		if t.getRandomBool(t.MapNilBias) {
+			// Set nil map
+			v.Set(reflect.Zero(v.Type()))
+		} else {
+			// Obtain a random size
+			mapSize := t.getRandomSize(t.MapMinSize, t.MapMaxSize)
 
-		// Create our map and set it now, so we can proceed to create key-value pairs for it.
-		v.Set(reflect.MakeMap(v.Type()))
+			// Create our map and set it now, so we can proceed to create key-value pairs for it.
+			v.Set(reflect.MakeMap(v.Type()))
 
-		// Loop for each element we wish to create
-		for i := 0; i < mapSize; i++ {
-			// First we need to create our key, depending on the key type
-			mKey := reflect.New(v.Type().Key()).Elem()
-			mValue := reflect.New(v.Type().Elem()).Elem()
+			// Loop for each element we wish to create
+			for i := 0; i < mapSize; i++ {
+				// First we need to create our key, depending on the key type
+				mKey := reflect.New(v.Type().Key()).Elem()
+				mValue := reflect.New(v.Type().Elem()).Elem()
 
-			// Populate the key and value
-			err := t.fillValue(mKey, currentDepth)
-			if err != nil {
-				return err
+				// Populate the key and value
+				err := t.fillValue(mKey, currentDepth)
+				if err != nil {
+					return err
+				}
+				err = t.fillValue(mValue, currentDepth)
+				if err != nil {
+					return err
+				}
+
+				// Set the key-value pair in our dictionary
+				v.SetMapIndex(mKey, mValue)
 			}
-			err = t.fillValue(mValue, currentDepth)
-			if err != nil {
-				return err
-			}
-
-			// Set the key-value pair in our dictionary
-			v.SetMapIndex(mKey, mValue)
 		}
 	} else if v.Kind() == reflect.Ptr {
-		// If it's a pointer, we need to create a new underlying type to live at the pointer, then populate it.
-		v.Set(reflect.New(v.Type().Elem()))
-		err := t.fillValue(v.Elem(), currentDepth)
-		if err != nil {
-			return err
+		// Determine if the pointer will be nil or if we'll actually populate assign it to a populated value.
+		if t.getRandomBool(t.PtrNilBias) {
+			// Set nil ptr
+			v.Set(reflect.Zero(v.Type()))
+		} else {
+			// If it's a pointer, we need to create a new underlying type to live at the pointer, then populate it.
+			v.Set(reflect.New(v.Type().Elem()))
+			err := t.fillValue(v.Elem(), currentDepth)
+			if err != nil {
+				return err
+			}
 		}
-	} else if v.Kind() == reflect.Array && !t.getRandomBool(t.SliceNilBias) {
+	} else if v.Kind() == reflect.Array {
 		// Loop through each element and fill it recursively.
 		for i := 0; i < v.Len(); i++ {
 			err := t.fillValue(v.Index(i), currentDepth)

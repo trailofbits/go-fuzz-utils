@@ -214,6 +214,9 @@ func TestFillStructs(t *testing.T) {
 
 	// Create a test structure and fill it.
 	st := testStruct{}
+	tp.PtrNilBias = 0
+	tp.MapNilBias = 0
+	tp.SliceNilBias = 0
 	tp.FillUnexportedFields = true
 	err = tp.Fill(&st)
 
@@ -336,6 +339,9 @@ func TestFillComplexTypes(t *testing.T) {
 	// Create our type provider
 	tp, err := goFuzzUtils.NewTypeProvider(b)
 	assert.Nil(t, err)
+	tp.PtrNilBias = 0
+	tp.MapNilBias = 0
+	tp.SliceNilBias = 0
 
 	// Create a mapping and fill it.
 	m := make(map[string]int)
@@ -343,12 +349,8 @@ func TestFillComplexTypes(t *testing.T) {
 
 	// Ensure something was generated.
 	assert.Nil(t, err)
-	assert.Greater(t, len(m), 0)
+	assert.GreaterOrEqual(t, len(m), 0)
 	assert.LessOrEqual(t, len(m), 15) // no more than 15 entries based on our args
-
-	// Reset our provider state
-	err = tp.Reset()
-	assert.Nil(t, err)
 
 	// Create a slice and fill it.
 	u64Arr := make([]uint64, 0)
@@ -356,12 +358,8 @@ func TestFillComplexTypes(t *testing.T) {
 
 	// Ensure something was generated.
 	assert.Nil(t, err)
-	assert.Greater(t, len(u64Arr), 0)
+	assert.GreaterOrEqual(t, len(u64Arr), 0)
 	assert.LessOrEqual(t, len(u64Arr), 15) // no more than 15 entries based on our args
-
-	// Reset our provider state
-	err = tp.Reset()
-	assert.Nil(t, err)
 
 	// Create a slice and fill it.
 	mappingArr := make([]map[string]int, 0)
@@ -373,7 +371,7 @@ func TestFillComplexTypes(t *testing.T) {
 
 	// Ensure something was generated.
 	assert.Nil(t, err)
-	assert.Greater(t, len(mappingArr), 0)
+	assert.GreaterOrEqual(t, len(mappingArr), 0)
 	assert.LessOrEqual(t, len(mappingArr), 15) // no more than 15 entries based on our args
 }
 
@@ -420,6 +418,25 @@ func TestByteArrayFilling(t *testing.T) {
 	// We have a special optimization case for byte slices that is separate from other slice types, so we offer a quick
 	// test to ensure that those types are populated without issue.
 
+	// Create our fuzz data (the test data isn't great for this test, so we tweak it a bit)
+	b := append([]byte{ 6 }, generateTestData(0x1000)...)
+
+	// Create our type provider
+	tp, err := goFuzzUtils.NewTypeProvider(b)
+	assert.Nil(t, err)
+
+	// Create a slice and fill it.
+	bSlice := make([]byte, 0)
+	err = tp.Fill(&bSlice)
+
+	// Ensure something was generated.
+	assert.Nil(t, err)
+
+	assert.GreaterOrEqual(t, len(bSlice), 0)
+	assert.LessOrEqual(t, len(bSlice), 15) // no more than 15 entries based on our args
+}
+
+func TestSkipBiases(t *testing.T) {
 	// Create our fuzz data
 	b := generateTestData(0x1000)
 
@@ -427,12 +444,42 @@ func TestByteArrayFilling(t *testing.T) {
 	tp, err := goFuzzUtils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
-	// Create a slice and fill it.
-	bArr := make([]byte, 0)
-	err = tp.Fill(&bArr)
+	// Define a struct to test our skip biases. We define every type that is considered for skipping.
+	type TestStruct struct {
+		sliceVal  []byte
+		mapVal map[int]int
+		ptrVal *int
+	}
+	x := 7
+	skipStruct := TestStruct {
+		sliceVal: []byte{ 0, 1, 2, 3 },
+		mapVal: map[int]int { 0: 0, 1: 1, 2: 2, 3: 3},
+		ptrVal: &x,
+	}
 
-	// Ensure something was generated.
+	// We'll try to fill all maps/ptr/slices with nil, but also set skip to a full bias so it shouldn't ever actually
+	// happen.
+	tp.MapNilBias = 1
+	tp.PtrNilBias = 1
+	tp.SliceMinSize = 0
+	tp.SliceMaxSize = 0
+	tp.SliceNilBias = 1
+	tp.SkipFieldBias = 1
+	err = tp.Fill(&skipStruct)
 	assert.Nil(t, err)
-	assert.Greater(t, len(bArr), 0)
-	assert.LessOrEqual(t, len(bArr), 15) // no more than 15 entries based on our args
+
+	// Ensure all values are not nil
+	assert.NotNil(t, skipStruct.mapVal)
+	assert.NotNil(t, skipStruct.ptrVal)
+	assert.NotNil(t, skipStruct.sliceVal)
+
+	// Now fill with the no skip bias, and they should all be nil
+	tp.SkipFieldBias = 0
+	err = tp.Fill(&skipStruct)
+	assert.Nil(t, err)
+
+	// Ensure all values are now nil given we have full nil bias and no skip bias
+	assert.Nil(t, skipStruct.mapVal)
+	assert.Nil(t, skipStruct.ptrVal)
+	assert.Nil(t, skipStruct.sliceVal)
 }
