@@ -219,31 +219,6 @@ func (t *TypeProvider) validateBounds(expectedCount int) error {
 	return nil
 }
 
-// validateFillSettings checks if the fill settings provided in the TypeProvider are valid.
-// Returns an error if the TypeProvider's fill settings are invalid.
-func (t *TypeProvider) validateFillSettings() error {
-	// Validate our min and max values
-	if t.sliceMinSize < 0 || t.sliceMaxSize < 0 || t.sliceMinSize > t.sliceMaxSize {
-		return errors.New("fill settings for slice size represent an invalid range")
-	}
-	if t.stringMinLength < 0 || t.stringMaxLength < 0 || t.stringMinLength > t.stringMaxLength {
-		return errors.New("fill settings for string length represent an invalid range")
-	}
-	if t.mapMinSize < 0 || t.mapMaxSize < 0 || t.mapMinSize > t.mapMaxSize {
-		return errors.New("fill settings for map size represent an invalid range")
-	}
-	if t.sliceNilBias < 0 || t.sliceNilBias > 1 {
-		return errors.New("fill setting for slice nil bias is invalid. it must be between 0 and 1")
-	}
-	if t.mapNilBias < 0 || t.mapNilBias > 1 {
-		return errors.New("fill setting for map nil bias is invalid. it must be between 0 and 1")
-	}
-	if t.depthLimit < 0 {
-		return errors.New("fill setting for depth limit cannot be less than zero")
-	}
-	return nil
-}
-
 // getRandomSize obtains a random int in the positive int range.
 func (t *TypeProvider) getRandomSize(min int, max int) int {
 	// Obtain a random size.
@@ -482,12 +457,6 @@ func (t *TypeProvider) GetString() (string, error) {
 // Fill populates data into a variable at a provided pointer. This can be used for structs or basic types.
 // Returns an error if one is encountered.
 func (t *TypeProvider) Fill(i interface{}) error {
-	// Validate fill settings
-	err := t.validateFillSettings()
-	if err != nil {
-		return err
-	}
-
 	// We should have been provided a pointer, so we obtain reflect pkg values and dereference.
 	v := reflect.Indirect(reflect.ValueOf(i))
 
