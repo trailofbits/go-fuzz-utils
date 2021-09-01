@@ -2,7 +2,7 @@ package go_fuzz_utils_test
 
 import (
 	"github.com/stretchr/testify/assert"
-	goFuzzUtils "go-fuzz-utils"
+	"github.com/trailofbits/go-fuzz-utils"
 	"sync"
 	"testing"
 )
@@ -26,7 +26,7 @@ func TestSimpleTypes(t *testing.T) {
 	b := generateTestData(256)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Basic values
@@ -102,14 +102,14 @@ func TestPositionReachedEnd(t *testing.T) {
 	b := generateTestData(1)
 
 	// Create our type provider. We should encounter an error since we need at least 64-bits to read a random seed from.
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.NotNil(t, err)
 
 	// Create more fuzz data
 	b = generateTestData(9)
 
 	// Recreate our type provider, this time it should succeed, reading 8 bytes as a random seed, leaving 1 byte left.
-	tp, err = goFuzzUtils.NewTypeProvider(b)
+	tp, err = go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Assert the values are as expected
@@ -209,7 +209,7 @@ func TestFillStructs(t *testing.T) {
 	b := generateTestData(0x1000)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Create a test structure and fill it.
@@ -266,7 +266,7 @@ func TestFillBasicTypes(t *testing.T) {
 	b := generateTestData(0x1000)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Create a test structure and fill it.
@@ -336,7 +336,7 @@ func TestFillComplexTypes(t *testing.T) {
 	b := generateTestData(0x1000)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 	assert.Nil(t, tp.SetParamsBiasesCommon(0, 0))
 
@@ -375,7 +375,7 @@ func TestNilBiases(t *testing.T) {
 	b := generateTestData(0x1000)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Define a struct to test our nil biases for slice
@@ -416,7 +416,7 @@ func TestByteArrayFilling(t *testing.T) {
 	b := append([]byte{ 6 }, generateTestData(0x1000)...)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Create a slice and fill it.
@@ -435,7 +435,7 @@ func TestSkipBiases(t *testing.T) {
 	b := generateTestData(0x1000)
 
 	// Create our type provider
-	tp, err := goFuzzUtils.NewTypeProvider(b)
+	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.Nil(t, err)
 
 	// Define a struct to test our skip biases. We define every type that is considered for skipping.

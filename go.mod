@@ -1,4 +1,4 @@
-module go-fuzz-utils
+module github.com/trailofbits/go-fuzz-utils
 
 go 1.17
 
