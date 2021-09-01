@@ -214,10 +214,9 @@ func TestFillStructs(t *testing.T) {
 
 	// Create a test structure and fill it.
 	st := testStruct{}
-	tp.PtrNilBias = 0
-	tp.MapNilBias = 0
-	tp.SliceNilBias = 0
-	tp.FillUnexportedFields = true
+	err = tp.SetParamsBiasesCommon(0, 0)
+	assert.Nil(t, err)
+	tp.SetParamsFillUnexportedFields(true)
 	err = tp.Fill(&st)
 
 	// Ensure no error was encountered and private variables were filled in this instance.
@@ -232,7 +231,7 @@ func TestFillStructs(t *testing.T) {
 
 	// Create a test structure and fill it.
 	st2 := testStruct{}
-	tp.FillUnexportedFields = false
+	tp.SetParamsFillUnexportedFields(false)
 	err = tp.Fill(&st2)
 
 	// Ensure no error was encountered and private variables weren't filled in this instance.
@@ -249,8 +248,8 @@ func TestFillStructs(t *testing.T) {
 
 	// Create a test structure and fill it.
 	st3 := testStruct{}
-	tp.DepthLimit = 1
-	tp.FillUnexportedFields = true
+	assert.Nil(t, tp.SetParamsDepthLimit(1))
+	tp.SetParamsFillUnexportedFields(true)
 	err = tp.Fill(&st3)
 
 	// Ensure no error was encountered and private variables weren't filled in this instance.
@@ -339,9 +338,7 @@ func TestFillComplexTypes(t *testing.T) {
 	// Create our type provider
 	tp, err := goFuzzUtils.NewTypeProvider(b)
 	assert.Nil(t, err)
-	tp.PtrNilBias = 0
-	tp.MapNilBias = 0
-	tp.SliceNilBias = 0
+	assert.Nil(t, tp.SetParamsBiasesCommon(0, 0))
 
 	// Create a mapping and fill it.
 	m := make(map[string]int)
@@ -363,10 +360,8 @@ func TestFillComplexTypes(t *testing.T) {
 
 	// Create a slice and fill it.
 	mappingArr := make([]map[string]int, 0)
-	tp.MapMinSize = 1
-	tp.MapMaxSize = 1
-	tp.SliceMinSize = 3
-	tp.SliceMaxSize = 3
+	assert.Nil(t, tp.SetParamsMapBounds(1, 1))
+	assert.Nil(t, tp.SetParamsSliceBounds(3, 3))
 	err = tp.Fill(&mappingArr)
 
 	// Ensure something was generated.
@@ -390,9 +385,8 @@ func TestNilBiases(t *testing.T) {
 	var nestedSlices [20]TestStruct
 
 	// Fill our slice and verify length
-	tp.SliceMinSize = 15
-	tp.SliceMaxSize = 15
-	tp.SliceNilBias = 0
+	assert.Nil(t, tp.SetParamsSliceBounds(15, 15))
+	assert.Nil(t, tp.SetParamsBiasesCommon(0, 0))
 	err = tp.Fill(&nestedSlices)
 	assert.Nil(t, err)
 
@@ -404,7 +398,7 @@ func TestNilBiases(t *testing.T) {
 
 	// Try to fill our slice again, this time with a full nil bias.
 	var nestedSlices2 [20]TestStruct
-	tp.SliceNilBias = 1
+	assert.Nil(t, tp.SetParamsBiasesCommon(1, 0))
 	err = tp.Fill(&nestedSlices2)
 	assert.Nil(t, err)
 
@@ -459,12 +453,8 @@ func TestSkipBiases(t *testing.T) {
 
 	// We'll try to fill all maps/ptr/slices with nil, but also set skip to a full bias so it shouldn't ever actually
 	// happen.
-	tp.MapNilBias = 1
-	tp.PtrNilBias = 1
-	tp.SliceMinSize = 0
-	tp.SliceMaxSize = 0
-	tp.SliceNilBias = 1
-	tp.SkipFieldBias = 1
+	assert.Nil(t, tp.SetParamsBiasesCommon(1, 1))
+	assert.Nil(t, tp.SetParamsSliceBounds(0, 0))
 	err = tp.Fill(&skipStruct)
 	assert.Nil(t, err)
 
@@ -474,7 +464,7 @@ func TestSkipBiases(t *testing.T) {
 	assert.NotNil(t, skipStruct.sliceVal)
 
 	// Now fill with the no skip bias, and they should all be nil
-	tp.SkipFieldBias = 0
+	assert.Nil(t, tp.SetParamsBiasesCommon(1, 0))
 	err = tp.Fill(&skipStruct)
 	assert.Nil(t, err)
 

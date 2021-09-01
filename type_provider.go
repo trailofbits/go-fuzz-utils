@@ -13,40 +13,44 @@ import (
 // TypeProvider ingests an arbitrary byte array and uses it to extract common data types and populate structures
 // for use in fuzzing campaigns.
 type TypeProvider struct {
+	// data represents the underlying buffer this TypeProvider will use to produce values of different data types.
 	data []byte
+	// position represents the offset into the data buffer which we are currently located at.
 	position int
+	// randomProvider represents a seeded random provider used to determine nil/skip probability and array/map/string
+	// sizes.
 	randomProvider *rand.Rand // initialized after seed is obtained from first few bytes of data
 
-	// SliceMinSize describes the minimum size a slice value will be generated as
-	SliceMinSize int
-	// SliceMaxSize describes the maximum size a slice value will be generated as
-	SliceMaxSize int
-	// SliceNilBias describes the probability of a slice being set as nil (represented as a float between 0 and 1)
-	SliceNilBias float32
+	// sliceMinSize describes the minimum size a slice value will be generated as
+	sliceMinSize int
+	// sliceMaxSize describes the maximum size a slice value will be generated as
+	sliceMaxSize int
+	// sliceNilBias describes the probability of a slice being set as nil (represented as a float between 0 and 1)
+	sliceNilBias float32
 
-	// MapMinSize describes the minimum size a map value will be generated as
-	MapMinSize   int
-	// MapMaxSize describes the maximum size a map value will be generated as
-	MapMaxSize int
-	// MapNilBias describes the probability of a map being set as nil (represented as a float between 0 and 1)
-	MapNilBias float32
+	// mapMinSize describes the minimum size a map value will be generated as
+	mapMinSize int
+	// mapMaxSize describes the maximum size a map value will be generated as
+	mapMaxSize int
+	// mapNilBias describes the probability of a map being set as nil (represented as a float between 0 and 1)
+	mapNilBias float32
 
-	// PtrNilBias describes the probability of a pointer being set as nil (represented as a float between 0 and 1)
-	PtrNilBias float32
+	// ptrNilBias describes the probability of a pointer being set as nil (represented as a float between 0 and 1)
+	ptrNilBias float32
 
-	// StringMinLength describes the minimum size a string value will be generated as
-	StringMinLength int
-	// StringMaxLength describes the maximum size a string value will be generated as
-	StringMaxLength int
+	// stringMinLength describes the minimum size a string value will be generated as
+	stringMinLength int
+	// stringMaxLength describes the maximum size a string value will be generated as
+	stringMaxLength int
 
-	// DepthLimit describes the maximum struct depth that values will be filled at. A value of zero indicates unlimited
+	// depthLimit describes the maximum struct depth that values will be filled at. A value of zero indicates unlimited
 	// depth.
-	DepthLimit int // zero indicates infinite depth
-	// FillUnexportedFields indicates whether unexported fields should be filled.
-	FillUnexportedFields bool
-	// SkipFieldBias describes the probability of a field being skipped during struct fill operations (represented as
+	depthLimit int // zero indicates infinite depth
+	// fillUnexportedFields indicates whether unexported fields should be filled.
+	fillUnexportedFields bool
+	// skipFieldBias describes the probability of a field being skipped during struct fill operations (represented as
 	// a float between 0 and 1)
-	SkipFieldBias float32
+	skipFieldBias float32
 }
 
 // NewTypeProvider constructs a new TypeProvider instance with the provided data and default parameters.
@@ -55,18 +59,18 @@ func NewTypeProvider(data []byte) (*TypeProvider, error) {
 	// Create a new type provider from the provided data and default settings
 	t := &TypeProvider{
 		data:                 data,
-		SliceMinSize:         0,
-		SliceMaxSize:         15,
-		SliceNilBias:         0.05,
-		MapMinSize:           0,
-		MapMaxSize:           15,
-		MapNilBias:           0.05,
-		PtrNilBias:			  0.05,
-		StringMinLength:      0,
-		StringMaxLength:      15,
-		DepthLimit:           0,
-		FillUnexportedFields: true,
-		SkipFieldBias:        0,
+		sliceMinSize:         0,
+		sliceMaxSize:         15,
+		sliceNilBias:         0.05,
+		mapMinSize:           0,
+		mapMaxSize:           15,
+		mapNilBias:           0.05,
+		ptrNilBias:           0.05,
+		stringMinLength:      0,
+		stringMaxLength:      15,
+		depthLimit:           0,
+		fillUnexportedFields: true,
+		skipFieldBias:        0,
 	}
 
 	// Call reset to create our random provider from this data.
@@ -76,6 +80,120 @@ func NewTypeProvider(data []byte) (*TypeProvider, error) {
 	}
 
 	return t, nil
+}
+
+// GetParamsStringBounds obtains the minimum and maximum string length parameters for use with Fill.
+func (t *TypeProvider) GetParamsStringBounds() (int, int) {
+	return t.stringMinLength, t.stringMaxLength
+}
+
+// SetParamsStringBounds sets the minimum and maximum string length parameters for use with Fill.
+// Returns an error if any argument is negative or if a minSize is larger than maxSize.
+func (t *TypeProvider) SetParamsStringBounds(minSize int, maxSize int) error {
+	// Validate our parameters and set them accordingly
+	if minSize < 0 || maxSize < minSize {
+		return fmt.Errorf("invalid string length bounds provided: min: %d, max: %d", minSize, maxSize)
+	}
+	t.stringMinLength = minSize
+	t.stringMaxLength = maxSize
+	return nil
+}
+
+// GetParamsMapBounds obtains the minimum and maximum map size parameters for use with Fill.
+func (t *TypeProvider) GetParamsMapBounds() (int, int) {
+	return t.mapMinSize, t.mapMaxSize
+}
+
+// SetParamsMapBounds sets the minimum and maximum map size parameters for use with Fill.
+// Returns an error if any argument is negative or if a minSize is larger than maxSize.
+func (t *TypeProvider) SetParamsMapBounds(minSize int, maxSize int) error {
+	// Validate our parameters and set them accordingly
+	if minSize < 0 || maxSize < minSize {
+		return fmt.Errorf("invalid map bounds provided: min: %d, max: %d", minSize, maxSize)
+	}
+	t.mapMinSize = minSize
+	t.mapMaxSize = maxSize
+	return nil
+}
+
+// GetParamsSliceBounds obtains the minimum and maximum slice size parameters for use with Fill.
+func (t *TypeProvider) GetParamsSliceBounds() (int, int) {
+	return t.sliceMinSize, t.sliceMaxSize
+}
+
+// SetParamsSliceBounds sets the minimum and maximum slice size parameters for use with Fill.
+// Returns an error if any argument is negative or if a minSize is larger than maxSize.
+func (t *TypeProvider) SetParamsSliceBounds(minSize int, maxSize int) error {
+	// Validate our parameters and set them accordingly
+	if minSize < 0 || maxSize < minSize {
+		return fmt.Errorf("invalid slice bounds provided: min: %d, max: %d", minSize, maxSize)
+	}
+	t.sliceMinSize = minSize
+	t.sliceMaxSize = maxSize
+	return nil
+}
+
+// GetParamsBiases obtains the bias parameters for use with Fill.
+// Returns four floats within range [0,1] indicating the probability of: nil maps, nil pointers, nil slices, and a field
+// being skipped when using Fill.
+func (t *TypeProvider) GetParamsBiases() (float32, float32, float32, float32) {
+	return t.mapNilBias, t.ptrNilBias, t.sliceNilBias, t.skipFieldBias
+}
+
+// SetParamsBiases sets bias parameters for this TypeProvider, indicating the probability of nil fills or fields being
+// skipped.
+// Returns an error if any bias value was not within the [0,1] range.
+func (t *TypeProvider) SetParamsBiases(mapNilBias float32, ptrNilBias float32, sliceNilBias float32, skipFieldBias float32) error {
+	// Validate our parameters
+	if mapNilBias < 0 || mapNilBias > 1 || ptrNilBias < 0 || ptrNilBias > 1 ||
+		sliceNilBias < 0 || sliceNilBias > 1 || skipFieldBias < 0 || skipFieldBias > 1 {
+		return errors.New("invalid bias provided. bias must be between [0,1]")
+	}
+
+	// Set our nil biases
+	t.mapNilBias = mapNilBias
+	t.ptrNilBias = ptrNilBias
+	t.sliceNilBias = sliceNilBias
+
+	// Set our skip bias
+	t.skipFieldBias = skipFieldBias
+	return nil
+}
+
+// SetParamsBiasesCommon sets bias parameters for this TypeProvider, indicating the probability of nil fills or fields
+// being skipped. This differs from SetParamsBiases as it sets all nil biases from a single common value.
+// Returns an error if any bias value was not within the [0,1] range.
+func (t *TypeProvider) SetParamsBiasesCommon(nilBias float32, skipFieldBias float32) error {
+	return t.SetParamsBiases(nilBias, nilBias, nilBias, skipFieldBias)
+}
+
+// GetParamsFillUnexportedFields gets a parameter indicating whether unexported struct fields should be filled when
+// using Fill.
+func (t *TypeProvider) GetParamsFillUnexportedFields() bool {
+	return t.fillUnexportedFields
+}
+
+// SetParamsFillUnexportedFields sets a parameter indicating that unexported struct fields should be filled when using
+// Fill.
+func (t *TypeProvider) SetParamsFillUnexportedFields(fill bool) {
+	t.fillUnexportedFields = fill
+}
+
+// GetParamsDepthLimit gets the depth limit parameter used when filling nested structures recursively using Fill.
+func (t *TypeProvider) GetParamsDepthLimit() int {
+	return t.depthLimit
+}
+
+// SetParamsDepthLimit sets the depth limit when filling nested structures recursively using Fill. Setting this value to zero
+// triggers a special case indicating infinite depth.
+// Returns an error if the depth limit is negative.
+func (t *TypeProvider) SetParamsDepthLimit(depthLimit int) error {
+	// Validate our parameters and set them accordingly
+	if depthLimit < 0 {
+		return fmt.Errorf("invalid depth limit provided: %d. depth limit cannot be negative", depthLimit)
+	}
+	t.depthLimit = depthLimit
+	return nil
 }
 
 // validateBounds checks if the remaining data in the buffer can satisfy an expected amount of bytes to be read.
@@ -105,22 +223,22 @@ func (t *TypeProvider) validateBounds(expectedCount int) error {
 // Returns an error if the TypeProvider's fill settings are invalid.
 func (t *TypeProvider) validateFillSettings() error {
 	// Validate our min and max values
-	if t.SliceMinSize < 0 || t.SliceMaxSize < 0 || t.SliceMinSize > t.SliceMaxSize {
+	if t.sliceMinSize < 0 || t.sliceMaxSize < 0 || t.sliceMinSize > t.sliceMaxSize {
 		return errors.New("fill settings for slice size represent an invalid range")
 	}
-	if t.StringMinLength < 0 || t.StringMaxLength < 0 || t.StringMinLength > t.StringMaxLength {
+	if t.stringMinLength < 0 || t.stringMaxLength < 0 || t.stringMinLength > t.stringMaxLength {
 		return errors.New("fill settings for string length represent an invalid range")
 	}
-	if t.MapMinSize < 0 || t.MapMaxSize < 0 || t.MapMinSize > t.MapMaxSize {
+	if t.mapMinSize < 0 || t.mapMaxSize < 0 || t.mapMinSize > t.mapMaxSize {
 		return errors.New("fill settings for map size represent an invalid range")
 	}
-	if t.SliceNilBias < 0 || t.SliceNilBias > 1 {
+	if t.sliceNilBias < 0 || t.sliceNilBias > 1 {
 		return errors.New("fill setting for slice nil bias is invalid. it must be between 0 and 1")
 	}
-	if t.MapNilBias < 0 || t.MapNilBias > 1 {
+	if t.mapNilBias < 0 || t.mapNilBias > 1 {
 		return errors.New("fill setting for map nil bias is invalid. it must be between 0 and 1")
 	}
-	if t.DepthLimit < 0 {
+	if t.depthLimit < 0 {
 		return errors.New("fill setting for depth limit cannot be less than zero")
 	}
 	return nil
@@ -154,17 +272,6 @@ func (t *TypeProvider) Reset() error {
 	// Create our random provider from the seed.
 	t.randomProvider = rand.New(rand.NewSource(seed))
 	return nil
-}
-
-// SetBiases provides a single method to change all bias configuration parameters with for this TypeProvider.
-func (t *TypeProvider) SetBiases(nilBias float32, skipBias float32) {
-	// Set our nil biases
-	t.MapNilBias = nilBias
-	t.PtrNilBias = nilBias
-	t.SliceNilBias = nilBias
-
-	// Set our skip bias
-	t.SkipFieldBias = skipBias
 }
 
 // GetNBytes obtains the requested number of bytes from the current position in the buffer.
@@ -350,7 +457,7 @@ func (t *TypeProvider) GetFixedString(length int) (string, error) {
 // Returns the read bytes, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetBytes() ([]byte, error) {
 	// Obtain a random size to read
-	x := t.getRandomSize(t.SliceMinSize, t.SliceMaxSize)
+	x := t.getRandomSize(t.sliceMinSize, t.sliceMaxSize)
 
 	// Use the random size to determine how many bytes to read, then obtain them and return.
 	return t.GetNBytes(x)
@@ -361,7 +468,7 @@ func (t *TypeProvider) GetBytes() ([]byte, error) {
 // Returns the read string, or an error if the end of stream has been reached.
 func (t *TypeProvider) GetString() (string, error) {
 	// Obtain a random size to read
-	x := t.getRandomSize(t.StringMinLength, t.StringMaxLength)
+	x := t.getRandomSize(t.stringMinLength, t.stringMaxLength)
 
 	// Use the random to determine how many bytes to read, then obtain them and return.
 	b, err := t.GetNBytes(x)
@@ -398,7 +505,7 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 	}
 
 	// Determine if we should skip this field
-	if t.getRandomBool(t.SkipFieldBias) {
+	if t.getRandomBool(t.skipFieldBias) {
 		return nil
 	}
 
@@ -509,12 +616,12 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 		v.SetString(s)
 	} else if v.Kind() == reflect.Slice {
 		// Determine if the slice will be nil or if we'll actually populate it.
-		if t.getRandomBool(t.SliceNilBias) {
+		if t.getRandomBool(t.sliceNilBias) {
 			// Set nil slice
 			v.Set(reflect.Zero(v.Type()))
 		} else {
 			// Obtain a random size
-			sliceSize := t.getRandomSize(t.SliceMinSize, t.SliceMaxSize)
+			sliceSize := t.getRandomSize(t.sliceMinSize, t.sliceMaxSize)
 
 			// Typically, we just create a slice here and loop for each element and fill it. But we add a special case here
 			// for byte arrays, as they're very common. Setting each element individually will take too long, so we read
@@ -541,12 +648,12 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 		}
 	} else if v.Kind() == reflect.Map {
 		// Determine if the map will be nil or if we'll actually populate it.
-		if t.getRandomBool(t.MapNilBias) {
+		if t.getRandomBool(t.mapNilBias) {
 			// Set nil map
 			v.Set(reflect.Zero(v.Type()))
 		} else {
 			// Obtain a random size
-			mapSize := t.getRandomSize(t.MapMinSize, t.MapMaxSize)
+			mapSize := t.getRandomSize(t.mapMinSize, t.mapMaxSize)
 
 			// Create our map and set it now, so we can proceed to create key-value pairs for it.
 			v.Set(reflect.MakeMap(v.Type()))
@@ -573,7 +680,7 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 		}
 	} else if v.Kind() == reflect.Ptr {
 		// Determine if the pointer will be nil or if we'll actually populate assign it to a populated value.
-		if t.getRandomBool(t.PtrNilBias) {
+		if t.getRandomBool(t.ptrNilBias) {
 			// Set nil ptr
 			v.Set(reflect.Zero(v.Type()))
 		} else {
@@ -592,14 +699,14 @@ func (t *TypeProvider) fillValue(v reflect.Value, currentDepth int) error {
 				return err
 			}
 		}
-	} else if v.Kind() == reflect.Struct && (t.DepthLimit == 0 || t.DepthLimit > currentDepth) {
+	} else if v.Kind() == reflect.Struct && (t.depthLimit == 0 || t.depthLimit > currentDepth) {
 		// For structs we need to recursively populate every field
 		for i := 0; i < v.NumField(); i++ {
 			field := v.Field(i)
 
 			// If it's private and we're not setting private fields, skip it
 			if !field.CanSet() {
-				if !t.FillUnexportedFields {
+				if !t.fillUnexportedFields {
 					continue
 				}
 				// If we are filling private fields, we continue by creating a new one here.
