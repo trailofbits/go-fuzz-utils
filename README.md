@@ -14,21 +14,17 @@ Import this package into your `go-fuzz` tests:
 import "github.com/trailofbits/go-fuzz-utils"
 ```
 
-As `go-fuzz` provides `[]byte` data for fuzzing campaigns, simply ensure enough data is provided to convert into all the necessary data types, then construct a new `TypeProvider` using `NewTypeProvider(...)`.  
+Construct a new `TypeProvider` using `NewTypeProvider(...)`.
 ```go
 func Fuzz(data []byte) int {
-	// Verify we have a sufficient amount of data to produce all the variables we need.
-	if len(data) < 0x100 {
-		return 0
-	}
-
 	// Create a new type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(data)
 	if err != nil {
-		return 0 // shouldn't happen, only if not enough data is supplied.
+		return 0 // not enough data was supplied, exit gracefully for the next fuzzing iteration
 	}
 [...]
 ```
+Note: the data `go-fuzz` generates on some runs may be too small to construct the `TypeProvider` or derive all the values needed for your test. Ensure errors are handled appropriately. If one is encountered, exit gracefully to continue to the next run where more data may be produced. Fill parameters such as mapping/slice/string length and `nil` probability can be set using the `SetParams[...]` methods.
 
 ## Simple data types
 You can obtain the necessary type of data with exported functions such as:
