@@ -82,3 +82,81 @@ Similarly, you can fill other data types as needed:
 	mappingArr := make([]map[string]int, 15)
 	err = tp.Fill(&mappingArr)
 ```
+
+## Files
+`go-fuzz-utils` exposes `GetFile` and `GetFilePath` methods. They are available for Linux only (through the `//go:build linux` build constraints) because they are based on the `memfd_create()` syscall for optimization purposes.
+They are based on the `memoryFile` method, a helper function that creates an anonymous file that behaves like a regular file, but it lives in memory (the fd is exposed in the `/proc/self/fd/` path).
+
+For example, given the following function:
+```go
+func GetJustFile(file *os.File) (bool, error) {
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		return false, err
+	}
+
+	text := string(content)
+	
+	if strings.Contains(text, "fuzz1337") {
+		return true, nil
+	}
+}
+```
+
+You can pass the `File` object in the harness as follows:
+```go
+func FuzzMeRegularFile(data []byte) int {
+	// Create a new type provider
+	tp, err := go_fuzz_utils.NewTypeProvider(data)
+	if err != nil {
+		return 0
+	}
+    
+	// Obtain a File
+	file, err := tp.GetFile()
+	if err != nil {
+		return 0
+	}
+	
+	// Pass the file to GetJustFile function
+	GetJustFile(file)
+	
+	return 0
+}
+```
+
+In a case where the path to the file is needed, e.g.:
+```go
+func GetFileAsPath(filepath string) (bool, error) {
+	b, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return false, err
+	}
+
+	s := string(b)
+	if strings.Contains(s, "fuzz13371337") {
+		return true, nil
+	}
+}
+```
+
+You can pass a path to the file by the `GetFilePath` method in your harness:
+```go
+func FuzzMePath(data []byte) int {
+    // Create a new type provider
+	tp, err := go_fuzz_utils.NewTypeProvider(data)
+	if err != nil {
+		return 0
+	}
+    
+	// Obtain a path to the file
+	filepath, err := tp.GetFilePath()
+	if err != nil {
+		return 0
+	}
+	
+	// Pass the path to the GetFileAsPath function
+	GetFileAsPath(filepath)
+	return 0
+}
+```
