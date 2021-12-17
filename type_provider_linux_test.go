@@ -12,7 +12,7 @@ import (
 
 func TestFileCreate(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -59,14 +59,14 @@ func TestFileCreate(t *testing.T) {
 
 func TestPositionReachedEndFile(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(1)
+	b := generateTestData(1)
 
 	// Create our type provider. We should encounter an error since we need at least 64-bits to read a random seed from.
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.NotNil(t, err)
 
 	// Create more fuzz data
-	b = GenerateTestData(9)
+	b = generateTestData(9)
 
 	// Recreate our type provider, this time it should succeed, reading 8 bytes as a random seed, leaving 1 byte left.
 	tp, err = go_fuzz_utils.NewTypeProvider(b)
