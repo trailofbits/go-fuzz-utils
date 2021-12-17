@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func GenerateTestData(length uint) []byte {
+func generateTestData(length uint) []byte {
 	// Create our test data
 	b := make([]byte, length)
 
@@ -23,7 +23,7 @@ func GenerateTestData(length uint) []byte {
 
 func TestSimpleTypes(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(256)
+	b := generateTestData(256)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -99,14 +99,14 @@ func TestSimpleTypes(t *testing.T) {
 
 func TestPositionReachedEnd(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(1)
+	b := generateTestData(1)
 
 	// Create our type provider. We should encounter an error since we need at least 64-bits to read a random seed from.
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
 	assert.NotNil(t, err)
 
 	// Create more fuzz data
-	b = GenerateTestData(9)
+	b = generateTestData(9)
 
 	// Recreate our type provider, this time it should succeed, reading 8 bytes as a random seed, leaving 1 byte left.
 	tp, err = go_fuzz_utils.NewTypeProvider(b)
@@ -206,7 +206,7 @@ type testStruct struct {
 
 func TestFillStructs(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -263,7 +263,7 @@ func TestFillStructs(t *testing.T) {
 
 func TestFillBasicTypes(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -333,7 +333,7 @@ func TestFillBasicTypes(t *testing.T) {
 
 func TestFillComplexTypes(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -372,7 +372,7 @@ func TestFillComplexTypes(t *testing.T) {
 
 func TestNilBiases(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -413,7 +413,7 @@ func TestByteArrayFilling(t *testing.T) {
 	// test to ensure that those types are populated without issue.
 
 	// Create our fuzz data (the test data isn't great for this test, so we tweak it a bit)
-	b := append([]byte{6}, GenerateTestData(0x1000)...)
+	b := append([]byte{6}, generateTestData(0x1000)...)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -432,7 +432,7 @@ func TestByteArrayFilling(t *testing.T) {
 
 func TestSkipBiases(t *testing.T) {
 	// Create our fuzz data
-	b := GenerateTestData(0x1000)
+	b := generateTestData(0x1000)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
