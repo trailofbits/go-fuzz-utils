@@ -3,6 +3,7 @@
 package go_fuzz_utils
 
 import (
+	"errors"
 	"fmt"
 	"golang.org/x/sys/unix"
 	"os"
