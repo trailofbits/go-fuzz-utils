@@ -15,7 +15,7 @@ func generateTestData(length uint) []byte {
 	// negative bits set if they're signed integers first. If tests don't use all the data, this will at least test
 	// integer width properties better since more bits will be set.
 	for i := 0; i < len(b); i++ {
-		b[i] = 255 - byte(i%256)
+		b[i] = 255 - byte(i % 256)
 	}
 
 	return b
@@ -85,7 +85,7 @@ func TestSimpleTypes(t *testing.T) {
 	bytesDynamic, err := tp.GetBytes()
 	assert.Nil(t, err)
 	assert.EqualValues(t, 3, len(bytesDynamic))
-	assert.EqualValues(t, 0xBC, bytesDynamic[0])
+	assert.EqualValues(t, 0XBC, bytesDynamic[0])
 	assert.EqualValues(t, 0xBB, bytesDynamic[1])
 
 	strDynamic, err := tp.GetString()
@@ -180,18 +180,18 @@ func TestPositionReachedEnd(t *testing.T) {
 }
 
 type testStruct struct {
-	s1  string
+	s1 string
 	st1 struct {
-		s  string
+		s string
 		s2 string
-		i  int
+		i int
 	}
-	sArr  []string
-	bArr  []byte
-	stArr []struct {
-		b   byte
-		s   string
-		i8  int8
+	sArr []string
+	bArr []byte
+	stArr [] struct {
+		b byte
+		s string
+		i8 int8
 		i16 int16
 		i32 int32
 		i64 int64
@@ -199,9 +199,9 @@ type testStruct struct {
 		f64 float64
 	}
 	PublicString string
-	PublicByte   byte
-	testMutex    sync.Mutex
-	PublicBytes  []byte
+	PublicByte byte
+	testMutex sync.Mutex
+	PublicBytes []byte
 }
 
 func TestFillStructs(t *testing.T) {
@@ -221,8 +221,8 @@ func TestFillStructs(t *testing.T) {
 
 	// Ensure no error was encountered and private variables were filled in this instance.
 	assert.Nil(t, err)
-	assert.NotNil(t, st.sArr)                                           // private variable, filled
-	assert.NotNil(t, st.bArr)                                           // private variable, filled
+	assert.NotNil(t, st.sArr) // private variable, filled
+	assert.NotNil(t, st.bArr) // private variable, filled
 	assert.False(t, st.st1.s == "" && st.st1.s2 == "" && st.st1.i == 0) // depth 2, something should be non-default value.
 
 	// Reset our provider state
@@ -236,11 +236,11 @@ func TestFillStructs(t *testing.T) {
 
 	// Ensure no error was encountered and private variables weren't filled in this instance.
 	assert.Nil(t, err)
-	assert.Nil(t, st2.sArr)               // private variable, unfilled
-	assert.Nil(t, st2.bArr)               // private variable, unfilled
-	assert.EqualValues(t, "", st2.st1.s)  // private variable, unfilled
+	assert.Nil(t, st2.sArr) // private variable, unfilled
+	assert.Nil(t, st2.bArr) // private variable, unfilled
+	assert.EqualValues(t, "", st2.st1.s) // private variable, unfilled
 	assert.EqualValues(t, "", st2.st1.s2) // private variable, unfilled
-	assert.EqualValues(t, 0, st2.st1.i)   // private variable, unfilled
+	assert.EqualValues(t, 0, st2.st1.i) // private variable, unfilled
 
 	// Reset our provider state
 	err = tp.Reset()
@@ -256,9 +256,9 @@ func TestFillStructs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, st3.sArr) // private variable, unfilled
 	assert.NotNil(t, st3.bArr)
-	assert.EqualValues(t, "", st3.st1.s)  // depth 2, not filled
-	assert.EqualValues(t, "", st3.st1.s2) // depth 2, not filled
-	assert.EqualValues(t, 0, st3.st1.i)   // depth 2, not filled
+	assert.EqualValues(t, "", st3.st1.s)// depth 2, not filled
+	assert.EqualValues(t, "", st3.st1.s2)// depth 2, not filled
+	assert.EqualValues(t, 0, st3.st1.i)// depth 2, not filled
 }
 
 func TestFillBasicTypes(t *testing.T) {
@@ -380,7 +380,7 @@ func TestNilBiases(t *testing.T) {
 
 	// Define a struct to test our nil biases for slice
 	type TestStruct struct {
-		x []uint8
+		x  []uint8
 	}
 	var nestedSlices [20]TestStruct
 
@@ -413,7 +413,7 @@ func TestByteArrayFilling(t *testing.T) {
 	// test to ensure that those types are populated without issue.
 
 	// Create our fuzz data (the test data isn't great for this test, so we tweak it a bit)
-	b := append([]byte{6}, generateTestData(0x1000)...)
+	b := append([]byte{ 6 }, generateTestData(0x1000)...)
 
 	// Create our type provider
 	tp, err := go_fuzz_utils.NewTypeProvider(b)
@@ -440,15 +440,15 @@ func TestSkipBiases(t *testing.T) {
 
 	// Define a struct to test our skip biases. We define every type that is considered for skipping.
 	type TestStruct struct {
-		sliceVal []byte
-		mapVal   map[int]int
-		ptrVal   *int
+		sliceVal  []byte
+		mapVal map[int]int
+		ptrVal *int
 	}
 	x := 7
-	skipStruct := TestStruct{
-		sliceVal: []byte{0, 1, 2, 3},
-		mapVal:   map[int]int{0: 0, 1: 1, 2: 2, 3: 3},
-		ptrVal:   &x,
+	skipStruct := TestStruct {
+		sliceVal: []byte{ 0, 1, 2, 3 },
+		mapVal: map[int]int { 0: 0, 1: 1, 2: 2, 3: 3},
+		ptrVal: &x,
 	}
 
 	// We'll try to fill all maps/ptr/slices with nil, but also set skip to a full bias so it shouldn't ever actually
