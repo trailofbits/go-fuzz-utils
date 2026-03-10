@@ -48,11 +48,11 @@ func TestSimpleTypes(t *testing.T) {
 
 	u32, err := tp.GetUint32()
 	assert.Nil(t, err)
-	assert.EqualValues(t, 0xEEEDECEB, u32)
+	assert.EqualValues(t, uint32(0xEEEDECEB), u32)
 
 	i64, err := tp.GetInt64()
 	assert.Nil(t, err)
-	assert.EqualValues(t, -1519427316551916317, i64)
+	assert.EqualValues(t, int64(-1519427316551916317), i64)
 
 	u64, err := tp.GetUint64()
 	assert.Nil(t, err)
@@ -66,14 +66,17 @@ func TestSimpleTypes(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, -2.050874878169571e+110, f64)
 
-	// Architecture dependent integer type tests
+	// Architecture dependent integer type tests (use variables to allow
+	// runtime truncation on 32-bit, where int/uint are 32 bits wide)
 	i, err := tp.GetInt()
 	assert.Nil(t, err)
-	assert.EqualValues(t, -3544952156018063161, i)
+	expectedInt := int64(-3544952156018063161)
+	assert.EqualValues(t, int(expectedInt), i)
 
 	u, err := tp.GetUint()
 	assert.Nil(t, err)
-	assert.EqualValues(t, uint(0xC6C5C4C3C2C1C0BF), u)
+	expectedUint := uint64(0xC6C5C4C3C2C1C0BF)
+	assert.EqualValues(t, uint(expectedUint), u)
 
 	// Slices/strings
 	bytesFixed, err := tp.GetNBytes(2)
@@ -304,13 +307,13 @@ func TestFillBasicTypes(t *testing.T) {
 	var u32 uint32
 	err = tp.Fill(&u32)
 	assert.Nil(t, err)
-	assert.EqualValues(t, 0xEFEEEDEC, u32)
+	assert.EqualValues(t, uint32(0xEFEEEDEC), u32)
 
 	// Fill a int64
 	var i64 int64
 	err = tp.Fill(&i64)
 	assert.Nil(t, err)
-	assert.EqualValues(t, -1447087143713839644, i64)
+	assert.EqualValues(t, int64(-1447087143713839644), i64)
 
 	// Fill a uint64
 	var u64 uint64
